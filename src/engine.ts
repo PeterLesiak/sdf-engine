@@ -1,28 +1,34 @@
 import { createRenderer, type Renderer } from '~/renderer/renderer';
 import { Scene } from '~/scene';
+import { Camera } from '~/cameras/camera';
 import { Signal } from '~/signal';
 import type { Seconds } from '~/types';
 
-export async function createEngine(options?: {
+export type EngineOptions = {
   canvas?: HTMLCanvasElement;
-}): Promise<Engine> {
-  const renderer = await createRenderer(options);
+  camera?: Camera;
+};
+
+export async function createEngine(
+  options: EngineOptions = {},
+): Promise<Engine> {
+  const renderer = await createRenderer({ canvas: options.canvas });
 
   if (!renderer) {
     throw 'failed to init renderer';
   }
 
-  return new Engine(renderer);
+  const camera = options.camera ?? new Camera();
+
+  return new Engine(renderer, camera);
 }
 
 export type FrameData = { elapsedTime: Seconds; deltaTime: Seconds };
 
 export class Engine {
   readonly renderer: Renderer;
-
+  readonly scene: Scene;
   readonly canvas: HTMLCanvasElement;
-
-  readonly scene = new Scene(this);
 
   readonly tick = new Signal<[frame: FrameData]>();
 
@@ -31,9 +37,12 @@ export class Engine {
     deltaTime: 0 as Seconds,
   };
 
-  constructor(renderer: Renderer) {
+  constructor(renderer: Renderer, camera: Camera) {
     this.renderer = renderer;
+    this.scene = new Scene({ engine: this, camera });
+
     this.canvas = this.renderer.canvas;
+    this.scene.camera.attach(this.canvas);
 
     let previousTimestamp = 0;
 
@@ -57,7 +66,7 @@ export class Engine {
   render(frame?: FrameData): this {
     this.scene.update();
 
-    this.renderer.render(frame ?? this.#frameCache);
+    this.renderer.render(this.scene.camera, frame ?? this.#frameCache);
 
     return this;
   }

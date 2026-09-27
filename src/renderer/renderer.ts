@@ -1,11 +1,8 @@
 import { IterableStorage } from './iterable-storage';
 import shader from './shader.wgsl?raw';
 import type { FrameData } from '~/engine';
-import { mat4 } from '~/math/mat4';
-import { vec3 } from '~/math/vec3';
+import type { Camera } from '~/cameras/camera';
 import { Viewport, viewport } from '~/math/viewport';
-import { degreesToRadians } from '~/math/utils';
-import type { Degrees } from '~/types';
 
 export type RendererOptions = {
   canvas?: HTMLCanvasElement;
@@ -21,7 +18,7 @@ export interface Renderer {
 
   resizeToViewport(): boolean;
 
-  render(frame: FrameData): void;
+  render(camera: Camera, frame: FrameData): void;
 }
 
 export async function createRenderer(
@@ -47,11 +44,6 @@ export async function createRenderer(
   const module = device.createShaderModule({ code: shader });
 
   const uniformData = new Float32Array(16 + 4);
-
-  const cameraWorld = mat4.cameraWorld(vec3(0, 0, 5), vec3(0, 0, 0));
-  cameraWorld.writeBuffer(uniformData, 0);
-
-  uniformData[18] = degreesToRadians(60 as Degrees);
 
   const uniformBuffer = device.createBuffer({
     size: uniformData.byteLength,
@@ -139,38 +131,46 @@ export async function createRenderer(
       return true;
     },
 
-    render(frame) {
-      operationStorage.flush();
-      primitiveStorage.flush();
-      materialStorage.flush();
+    render(camera, frame) {
+      {
+        operationStorage.flush();
+        primitiveStorage.flush();
+        materialStorage.flush();
+      }
 
-      this.resizeToViewport();
+      {
+        this.resizeToViewport();
 
-      uniformData[16] = this.viewport.width;
-      uniformData[17] = this.viewport.height;
-      uniformData[19] = frame.elapsedTime;
+        camera.writeBuffer(uniformData);
 
-      device.queue.writeBuffer(uniformBuffer, 0, uniformData);
+        uniformData[16] = this.viewport.width;
+        uniformData[17] = this.viewport.height;
+        uniformData[19] = frame.elapsedTime;
 
-      const encoder = device.createCommandEncoder();
+        device.queue.writeBuffer(uniformBuffer, 0, uniformData);
+      }
 
-      const pass = encoder.beginRenderPass({
-        colorAttachments: [
-          {
-            view: context.getCurrentTexture().createView(),
-            loadOp: 'clear',
-            storeOp: 'store',
-          },
-        ],
-      });
+      {
+        const encoder = device.createCommandEncoder();
 
-      pass.setPipeline(pipeline);
-      pass.setBindGroup(0, uniformBindGroup);
-      pass.setBindGroup(1, storageBindGroup);
-      pass.draw(3);
-      pass.end();
+        const pass = encoder.beginRenderPass({
+          colorAttachments: [
+            {
+              view: context.getCurrentTexture().createView(),
+              loadOp: 'clear',
+              storeOp: 'store',
+            },
+          ],
+        });
 
-      device.queue.submit([encoder.finish()]);
+        pass.setPipeline(pipeline);
+        pass.setBindGroup(0, uniformBindGroup);
+        pass.setBindGroup(1, storageBindGroup);
+        pass.draw(3);
+        pass.end();
+
+        device.queue.submit([encoder.finish()]);
+      }
     },
   } satisfies Renderer;
 }

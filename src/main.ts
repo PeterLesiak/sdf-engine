@@ -1,19 +1,19 @@
 import { createEngine } from '~/engine';
+import { OrbitCamera } from '~/cameras/orbit-camera';
 import { smoothUnion } from '~/operations/smooth-union';
 import { torus } from '~/primitives/torus';
-import { box } from './primitives/box';
+import { box } from '~/primitives/box';
 import { material } from '~/materials/material';
 import { vec3 } from '~/math/vec3';
 import { remap01 } from '~/math/utils';
 
-const engine = await createEngine();
+const engine = await createEngine({ camera: new OrbitCamera() });
 document.body.append(engine.canvas);
 
 const ring = torus();
 
 const cube = box({
   size: vec3.fromScalar(0.7),
-  radius: 0,
   material: material({ color: vec3(0, 0.5, 1) }),
 });
 

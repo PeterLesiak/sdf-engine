@@ -233,6 +233,25 @@ fn get_normal(p: vec3f) -> vec3f {
   return normalize(n);
 }
 
+struct Ray {
+  origin: vec3f,
+  dir: vec3f,
+}
+
+fn get_camera_ray(uv: vec2f) -> Ray {
+  let focal_length = 1.0 / tan(uniforms.fov / 2.0);
+
+  var aspect_uv = uv;
+  aspect_uv.x *= uniforms.resolution.x / uniforms.resolution.y;
+
+  let ray_dir_view = normalize(vec3f(aspect_uv, -focal_length));
+
+  let ray_origin = uniforms.camera_world[3].xyz;
+  let ray_dir = normalize((uniforms.camera_world * vec4f(ray_dir_view, 0.0)).xyz);
+
+  return Ray(ray_origin, ray_dir);
+}
+
 fn get_sky_color(rd: vec3f, sun_dir: vec3f) -> vec3f {
   let zenith_color = vec3f(0, 0.1, 0.6);
   let horizon_color = vec3f(0.2, 0.3, 0.45);
@@ -249,21 +268,13 @@ fn get_sky_color(rd: vec3f, sun_dir: vec3f) -> vec3f {
 
 @fragment
 fn fragment_main(input: VertexOutput) -> @location(0) vec4f {
-  let focal_length = 1.0 / tan(uniforms.fov / 2.0);
-
-  var uv = input.uv;
-  uv.x *= uniforms.resolution.x / uniforms.resolution.y;
-
-  let ray_dir_view = normalize(vec3f(uv, -focal_length));
-
-  let ray_origin = uniforms.camera_world[3].xyz;
-  let ray_dir = normalize((uniforms.camera_world * vec4f(ray_dir_view, 0.0)).xyz);
+  let ray = get_camera_ray(input.uv);
 
   var dO: f32 = 0.0;
   var hit: bool = false;
 
   for (var i = 0; i < ray_marching_steps; i++) {
-    let point = ray_origin + ray_dir * dO;
+    let point = ray.origin + ray.dir * dO;
 
     let surface = map_scene(point);
     let dS = surface.dist;
@@ -286,12 +297,12 @@ fn fragment_main(input: VertexOutput) -> @location(0) vec4f {
 
   // let sun_dir = light_dir;
   let sun_dir = normalize(vec3f(0.27, 0.2, -0.5));
-  let sky_color = get_sky_color(ray_dir, sun_dir);
+  let sky_color = get_sky_color(ray.dir, sun_dir);
 
   var col = sky_color;
 
   if (hit) {
-    let point = ray_origin + ray_dir * dO;
+    let point = ray.origin + ray.dir * dO;
     let normal = get_normal(point);
     let hit_surface = map_scene(point);
 

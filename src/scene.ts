@@ -1,20 +1,30 @@
 import type { Engine } from '~/engine';
+import type { Camera } from '~/cameras/camera';
 import { noop } from '~/operations/noop';
 import type { Operation } from '~/operations/operation';
 import { isPrimitive, type Primitive } from '~/primitives/primitive';
 
 export type SceneNode = Operation | Primitive;
 
+export type SceneOptions = {
+  engine: Engine;
+  camera: Camera;
+};
+
 export class Scene {
   readonly engine: Engine;
+  readonly camera: Camera;
 
-  constructor(engine: Engine) {
-    this.engine = engine;
+  constructor(options: SceneOptions) {
+    this.engine = options.engine;
+    this.camera = options.camera;
   }
 
   readonly children: Operation[] = [];
 
   update(): this {
+    this.camera.computeMatrix();
+
     for (const operation of this.children) {
       operation.storage.flush();
     }
