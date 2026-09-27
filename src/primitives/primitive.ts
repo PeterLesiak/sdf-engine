@@ -1,4 +1,5 @@
 import type { Renderer } from '~/renderer/renderer';
+import type { StorageBufferWrite } from '~/renderer/iterable-storage';
 import type { Material } from '~/materials/material';
 import { Transform } from '~/math/transform';
 import type { Euler } from '~/math/euler';
@@ -94,10 +95,7 @@ export class PrimitiveStorage {
     this.material = options.material;
   }
 
-  readonly writeBuffer = (buffer: ArrayBuffer, offset: number): this => {
-    const u32 = new Uint32Array(buffer);
-    const f32 = new Float32Array(buffer);
-
+  readonly writeBuffer: StorageBufferWrite = ({ u32, f32 }, offset) => {
     // mat4x4f (offset = 0, size = 16)
     this.transform.inverseWorldMatrix.writeBuffer(f32, offset);
 

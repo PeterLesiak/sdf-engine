@@ -7,8 +7,6 @@ import { Viewport, viewport } from '~/math/viewport';
 import { degreesToRadians } from '~/math/utils';
 import type { Degrees } from '~/types';
 
-export type StorageBufferWrite = (buffer: ArrayBuffer, offset: number) => void;
-
 export type RendererOptions = {
   canvas?: HTMLCanvasElement;
 };
@@ -22,6 +20,7 @@ export interface Renderer {
   readonly materialStorage: IterableStorage;
 
   resizeToViewport(): boolean;
+
   render(frame: FrameData): void;
 }
 

@@ -1,4 +1,12 @@
-import type { StorageBufferWrite } from './renderer';
+export type StorageBufferView = {
+  u32: Uint32Array;
+  f32: Float32Array;
+};
+
+export type StorageBufferWrite = (
+  views: StorageBufferView,
+  offset: number,
+) => void;
 
 const headerSize = 4;
 
@@ -8,6 +16,7 @@ export class IterableStorage {
   readonly capacity: number;
 
   readonly data: ArrayBuffer;
+  readonly view: StorageBufferView;
   readonly buffer: GPUBuffer;
 
   constructor(device: GPUDevice, stride: number, capacity: number) {
@@ -16,6 +25,11 @@ export class IterableStorage {
     this.capacity = capacity;
 
     this.data = new ArrayBuffer(headerSize + this.stride * this.capacity);
+
+    this.view = {
+      u32: new Uint32Array(this.data),
+      f32: new Float32Array(this.data),
+    };
 
     this.buffer = this.device.createBuffer({
       size: this.data.byteLength,
@@ -41,7 +55,7 @@ export class IterableStorage {
   }
 
   update(elementIndex: number, write: StorageBufferWrite): this {
-    write(this.data, headerSize + elementIndex * this.stride);
+    write(this.view, headerSize + elementIndex * this.stride);
 
     this.#minDirtyElementIndex = Math.min(
       this.#minDirtyElementIndex,

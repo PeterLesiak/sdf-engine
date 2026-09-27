@@ -1,4 +1,5 @@
 import type { Renderer } from '~/renderer/renderer';
+import type { StorageBufferWrite } from '~/renderer/iterable-storage';
 import type { Vector3 } from '~/math/vec3';
 
 export interface MaterialOptions {
@@ -25,9 +26,7 @@ export class Material {
     });
   }
 
-  readonly writeBuffer = (buffer: ArrayBuffer, offset: number): this => {
-    const f32 = new Float32Array(buffer);
-
+  readonly writeBuffer: StorageBufferWrite = ({ f32 }, offset): this => {
     // vec3f (offset = 0, size = 3)
     this.color.writeBuffer(f32, offset);
 

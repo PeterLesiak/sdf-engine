@@ -1,4 +1,5 @@
 import type { Renderer } from '~/renderer/renderer';
+import type { StorageBufferWrite } from '~/renderer/iterable-storage';
 import type { Primitive } from '~/primitives/primitive';
 import { isDictionary } from '~/utils';
 import type { Enum } from '~/types';
@@ -69,10 +70,7 @@ export class OperationStorage {
     this.object2 = options.object2;
   }
 
-  readonly writeBuffer = (buffer: ArrayBuffer, offset: number): this => {
-    const u32 = new Uint32Array(buffer);
-    const f32 = new Float32Array(buffer);
-
+  readonly writeBuffer: StorageBufferWrite = ({ u32, f32 }, offset) => {
     // u32 (offset = 0, size = 1)
     u32[offset] = this.kind;
 
