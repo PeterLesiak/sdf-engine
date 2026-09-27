@@ -1,14 +1,9 @@
-export type StorageBufferView = {
-  u32: Uint32Array;
-  f32: Float32Array;
-};
+export type StorageBufferView = { u32: Uint32Array; f32: Float32Array };
 
 export type StorageBufferWrite = (
   views: StorageBufferView,
   offset: number,
 ) => void;
-
-const headerSize = 4;
 
 export class IterableStorage {
   readonly device: GPUDevice;
@@ -24,7 +19,7 @@ export class IterableStorage {
     this.stride = stride;
     this.capacity = capacity;
 
-    this.data = new ArrayBuffer(headerSize + this.stride * this.capacity);
+    this.data = new ArrayBuffer(this.stride * this.capacity * 4);
 
     this.view = {
       u32: new Uint32Array(this.data),
@@ -39,23 +34,15 @@ export class IterableStorage {
 
   elementCount = 0;
 
-  #isHeaderDirty = false;
   #minDirtyElementIndex = Infinity;
   #maxDirtyElementIndex = -1;
 
   push(): number {
-    const elementIndex = this.elementCount;
-
-    const u32 = new Uint32Array(this.data);
-    u32[0] = ++this.elementCount;
-
-    this.#isHeaderDirty = true;
-
-    return elementIndex;
+    return this.elementCount++;
   }
 
   update(elementIndex: number, write: StorageBufferWrite): this {
-    write(this.view, headerSize + elementIndex * this.stride);
+    write(this.view, elementIndex * this.stride);
 
     this.#minDirtyElementIndex = Math.min(
       this.#minDirtyElementIndex,
@@ -73,13 +60,8 @@ export class IterableStorage {
   flush(): this {
     if (this.#maxDirtyElementIndex < 0) return this;
 
-    const headerOffset = headerSize * 4;
-
-    const startOffset = this.#minDirtyElementIndex * this.stride * 4;
-    const startBytes = this.#isHeaderDirty ? 0 : headerOffset + startOffset;
-
-    const endOffset = (this.#maxDirtyElementIndex + 1) * this.stride * 4;
-    const endBytes = headerOffset + endOffset;
+    const startBytes = this.#minDirtyElementIndex * this.stride * 4;
+    const endBytes = (this.#maxDirtyElementIndex + 1) * this.stride * 4;
 
     this.device.queue.writeBuffer(
       this.buffer,
@@ -89,7 +71,6 @@ export class IterableStorage {
       endBytes - startBytes,
     );
 
-    this.#isHeaderDirty = false;
     this.#minDirtyElementIndex = Infinity;
     this.#maxDirtyElementIndex = -1;
 

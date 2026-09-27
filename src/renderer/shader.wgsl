@@ -22,7 +22,11 @@ struct Uniforms {
   camera_world: mat4x4f,
   resolution: vec2f,
   fov: f32, // radians
-  elapsedTime: f32, // seconds
+  elapsedTime: f32, // seconds,
+  operations_count: u32,
+  padding_1: u32,
+  padding_2: u32,
+  padding_3: u32,
 }
 
 @group(0) @binding(0)
@@ -35,14 +39,6 @@ struct Operation {
   param: f32,
 }
 
-struct OperationStorage {
-  count: u32,
-  padding_1: u32,
-  padding_2: u32,
-  padding_3: u32,
-  operations: array<Operation>,
-}
-
 struct Primitive {
   inv_world: mat4x4f,
   bounds: vec4f, // Sphere (r, 0, 0, 0), Plane (0, 0, 0, 0), Box (hx, hy, hz, radius), Torus (R, r, 0, 0)
@@ -50,35 +46,19 @@ struct Primitive {
   material_id: u32,
 }
 
-struct PrimitiveStorage {
-  count: u32,
-  padding_1: u32,
-  padding_2: u32,
-  padding_3: u32,
-  primitives: array<Primitive>,
-}
-
 struct Material {
   color: vec3f,
   padding: f32,
 }
 
-struct MaterialStorage {
-  count: u32,
-  padding_1: u32,
-  padding_2: u32,
-  padding_3: u32,
-  materials: array<Material>,
-}
-
 @group(1) @binding(0)
-var<storage, read> operation_storage: OperationStorage;
+var<storage, read> operation_storage: array<Operation>;
 
 @group(1) @binding(1)
-var<storage, read> primitive_storage: PrimitiveStorage;
+var<storage, read> primitive_storage: array<Primitive>;
 
 @group(1) @binding(2)
-var<storage, read> material_storage: MaterialStorage;
+var<storage, read> material_storage: array<Material>;
 
 fn sd_sphere(p: vec3f, center: vec3f, radius: f32) -> f32 {
   return length(p - center) - radius;
@@ -144,7 +124,7 @@ const ray_marching_epsilon = 0.0001f;
 const ray_marching_threshold = 100f;
 
 fn get_primitive_surface(world_point: vec3f, index: u32) -> Surface {
-  let primitive = primitive_storage.primitives[index];
+  let primitive = primitive_storage[index];
   let p_local = (primitive.inv_world * vec4f(world_point, 1.0)).xyz;
 
   var dist = ray_distance_threshold;
@@ -186,7 +166,7 @@ fn get_primitive_surface(world_point: vec3f, index: u32) -> Surface {
     default: {}
   }
   
-  let material = material_storage.materials[primitive.material_id];
+  let material = material_storage[primitive.material_id];
 
   var surface: Surface;
   surface.dist = dist;
@@ -198,8 +178,8 @@ fn get_primitive_surface(world_point: vec3f, index: u32) -> Surface {
 fn map_scene(point: vec3f) -> Surface {
   var min_surface = Surface(ray_distance_threshold, vec3f(0));
 
-  for (var i = 0u; i < operation_storage.count; i++) {
-    let operation = operation_storage.operations[i];
+  for (var i = 0u; i < uniforms.operations_count; i++) {
+    let operation = operation_storage[i];
     
     let s1 = get_primitive_surface(point, operation.primitive_1);
     let s2 = get_primitive_surface(point, operation.primitive_2);
@@ -257,7 +237,7 @@ fn get_sky_color(rd: vec3f, sun_dir: vec3f) -> vec3f {
   let horizon_color = vec3f(0.2, 0.3, 0.45);
 
   let sky_factor = max(rd.y, 0.0);
-  let sky = mix(horizon_color, zenith_color, pow(sky_factor, 0.5));
+  let sky = mix(horizon_color, zenith_color, pow(sky_factor, 0.4));
 
   let sun_dot = max(dot(rd, sun_dir), 0.0);
   let sun_halo = pow(sun_dot, 32.0) * vec3f(1.0, 0.7, 0.4) * 0.8;

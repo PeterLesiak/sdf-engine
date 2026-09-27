@@ -1,4 +1,4 @@
-import { IterableStorage } from './iterable-storage';
+import { IterableStorage, type StorageBufferView } from './iterable-storage';
 import shader from './shader.wgsl?raw';
 import type { FrameData } from '~/engine';
 import type { Camera } from '~/cameras/camera';
@@ -43,7 +43,12 @@ export async function createRenderer(
 
   const module = device.createShaderModule({ code: shader });
 
-  const uniformData = new Float32Array(16 + 4);
+  const uniformData = new ArrayBuffer(24 * 4);
+
+  const uniformView: StorageBufferView = {
+    u32: new Uint32Array(uniformData),
+    f32: new Float32Array(uniformData),
+  };
 
   const uniformBuffer = device.createBuffer({
     size: uniformData.byteLength,
@@ -141,11 +146,12 @@ export async function createRenderer(
       {
         this.resizeToViewport();
 
-        camera.writeBuffer(uniformData);
+        camera.writeBuffer(uniformView.f32);
 
-        uniformData[16] = this.viewport.width;
-        uniformData[17] = this.viewport.height;
-        uniformData[19] = frame.elapsedTime;
+        uniformView.f32[16] = this.viewport.width;
+        uniformView.f32[17] = this.viewport.height;
+        uniformView.f32[19] = frame.elapsedTime;
+        uniformView.u32[20] = operationStorage.elementCount;
 
         device.queue.writeBuffer(uniformBuffer, 0, uniformData);
       }
