@@ -1,5 +1,5 @@
 import type { Renderer } from '~/renderer/renderer';
-import { vec3, type Vector3 } from '~/math/vec3';
+import type { Vector3 } from '~/math/vec3';
 
 export interface MaterialOptions {
   color: Vector3;
@@ -10,13 +10,19 @@ export function material(options: MaterialOptions): Material {
 }
 
 export class Material {
-  color: Vector3;
+  #isDirty = true;
+
+  readonly color: Vector3;
 
   renderer: Renderer | null = null;
   materialIndex = -1;
 
   constructor(options: MaterialOptions) {
     this.color = options.color;
+
+    this.color.change.subscribe(() => {
+      this.#isDirty = true;
+    });
   }
 
   readonly writeBuffer = (buffer: ArrayBuffer, offset: number): this => {
@@ -38,12 +44,10 @@ export class Material {
   flush(): this {
     if (!this.renderer || this.materialIndex < 0) return this;
 
+    if (!this.#isDirty) return this;
+
     this.renderer.materialStorage.update(this.materialIndex, this.writeBuffer);
 
     return this;
   }
 }
-
-export const defaultMaterial = material({
-  color: vec3(0.1, 0.1, 0.1),
-});

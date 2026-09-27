@@ -65,6 +65,10 @@ export class Vector3 {
     return this;
   }
 
+  setScalar(scalar: number): this {
+    return this.set(scalar, scalar, scalar);
+  }
+
   copy(v: Vector3): this {
     this.#x = v.x;
     this.#y = v.y;

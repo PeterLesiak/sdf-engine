@@ -29,7 +29,7 @@ struct Uniforms {
 var<uniform> uniforms: Uniforms;
 
 struct Operation {
-  kind: u32, // 0 = None, 1 = Union, 2 = Subtraction, 3 = Intersection, 4 = Smooth Union
+  kind: u32, // 0 = None, 1 = Union, 2 = Difference, 3 = Intersection, 4 = Smooth Union
   primitive_1: u32,
   primitive_2: u32,
   param: f32,
@@ -94,7 +94,7 @@ fn sd_round_box(p: vec3f, center: vec3f, half_extents: vec3f, radius: f32) -> f3
 }
 
 fn sd_torus(p: vec3f, R: f32, r: f32) -> f32 {
-  let q = vec2f(length(p.xz) - R,p.y);
+  let q = vec2f(length(p.xz) - R, p.y);
   return length(q) - r;
 }
 
@@ -111,7 +111,7 @@ fn op_union(s1: Surface, s2: Surface) -> Surface {
   return s2;
 }
 
-fn op_subtraction(s1: Surface, s2: Surface) -> Surface {
+fn op_difference(s1: Surface, s2: Surface) -> Surface {
   var surface: Surface;
   surface.dist = max(-s1.dist, s2.dist);
   surface.color = s2.color;
@@ -210,7 +210,7 @@ fn map_scene(point: vec3f) -> Surface {
       case 0u, default: { surface = s1; }
 
       case 1u: { surface = op_union(s1, s2); }
-      case 2u: { surface = op_subtraction(s1, s2); } 
+      case 2u: { surface = op_difference(s1, s2); } 
       case 3u: { surface = op_intersection(s1, s2); }
       case 4u: { surface = op_smooth_union(s1, s2, operation.param); }
     }
@@ -281,7 +281,8 @@ fn fragment_main(input: VertexOutput) -> @location(0) vec4f {
   }
 
   let light_angle = (uniforms.elapsedTime + 100) * -0.00005;
-  let light_dir = normalize(vec3f(sin(light_angle), 0.2, cos(light_angle)));
+  // let light_dir = normalize(vec3f(sin(light_angle), 0.2, cos(light_angle)));
+  let light_dir = normalize(vec3f(0.5, 0.8, 0.6));
 
   // let sun_dir = light_dir;
   let sun_dir = normalize(vec3f(0.27, 0.2, -0.5));

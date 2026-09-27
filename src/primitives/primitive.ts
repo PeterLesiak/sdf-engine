@@ -1,8 +1,9 @@
 import type { Renderer } from '~/renderer/renderer';
-import type { Material } from '~/materials';
+import type { Material } from '~/materials/material';
 import { Transform } from '~/math/transform';
 import type { Euler } from '~/math/euler';
 import type { Vector3 } from '~/math/vec3';
+import { isDictionary } from '~/utils';
 import type { Enum } from '~/types';
 
 export const PrimitiveKind = {
@@ -13,6 +14,14 @@ export const PrimitiveKind = {
 } as const;
 
 export type PrimitiveKind = Enum<typeof PrimitiveKind>;
+
+export interface Primitive {
+  readonly storage: PrimitiveStorage;
+}
+
+export function isPrimitive(value: unknown): value is Primitive {
+  return isDictionary(value) && value.storage instanceof PrimitiveStorage;
+}
 
 export type PrimitiveOptions = {
   kind: PrimitiveKind;
@@ -27,7 +36,7 @@ export type PrimitiveOptions = {
   material: Material;
 };
 
-export class Primitive {
+export class PrimitiveStorage {
   #isDirty = true;
 
   #kind: PrimitiveKind;

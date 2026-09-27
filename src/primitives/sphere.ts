@@ -1,5 +1,6 @@
-import { Primitive, PrimitiveKind } from './primitive';
-import { defaultMaterial, type Material } from '~/materials';
+import { type Primitive, PrimitiveKind, PrimitiveStorage } from './primitive';
+import { defaultMaterial } from '~/materials/default-material';
+import type { Material } from '~/materials/material';
 import { Euler, euler } from '~/math/euler';
 import { vec3, type Vector3 } from '~/math/vec3';
 
@@ -21,11 +22,11 @@ export function sphere({
   return new Sphere({ position, rotation, scale, radius, material });
 }
 
-export class Sphere {
-  readonly primitive: Primitive;
+export class Sphere implements Primitive {
+  readonly storage: PrimitiveStorage;
 
   constructor(options: Required<SphereOptions>) {
-    this.primitive = new Primitive({
+    this.storage = new PrimitiveStorage({
       kind: PrimitiveKind.Sphere,
       position: options.position,
       rotation: options.rotation,
@@ -37,38 +38,38 @@ export class Sphere {
   }
 
   get material(): Material {
-    return this.primitive.material;
+    return this.storage.material;
   }
 
   get position(): Vector3 {
-    return this.primitive.transform.position;
+    return this.storage.transform.position;
   }
 
   set position(position: Vector3) {
-    this.primitive.transform.position.copy(position);
+    this.storage.transform.position.copy(position);
   }
 
   get rotation(): Euler {
-    return this.primitive.transform.rotation;
+    return this.storage.transform.rotation;
   }
 
   set rotation(rotation: Euler) {
-    this.primitive.transform.rotation.copy(rotation);
+    this.storage.transform.rotation.copy(rotation);
   }
 
   get scale(): Vector3 {
-    return this.primitive.transform.scale;
+    return this.storage.transform.scale;
   }
 
   set scale(scale: Vector3) {
-    this.primitive.transform.scale.copy(scale);
+    this.storage.transform.scale.copy(scale);
   }
 
   get radius(): number {
-    return this.primitive.bounds.x;
+    return this.storage.bounds.x;
   }
 
   set radius(radius: number) {
-    this.primitive.bounds.x = radius;
+    this.storage.bounds.x = radius;
   }
 }

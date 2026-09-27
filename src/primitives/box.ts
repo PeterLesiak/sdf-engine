@@ -1,5 +1,6 @@
-import { Primitive, PrimitiveKind } from './primitive';
-import { defaultMaterial, type Material } from '~/materials';
+import { type Primitive, PrimitiveKind, PrimitiveStorage } from './primitive';
+import { defaultMaterial } from '~/materials/default-material';
+import type { Material } from '~/materials/material';
 import { euler, type Euler } from '~/math/euler';
 import { vec3, type Vector3 } from '~/math/vec3';
 
@@ -23,11 +24,11 @@ export function box({
   return new Box({ position, rotation, scale, size, radius, material });
 }
 
-export class Box {
-  readonly primitive: Primitive;
+export class Box implements Primitive {
+  readonly storage: PrimitiveStorage;
 
   constructor(options: Required<BoxOptions>) {
-    this.primitive = new Primitive({
+    this.storage = new PrimitiveStorage({
       kind: PrimitiveKind.Box,
       position: options.position,
       rotation: options.rotation,
@@ -39,46 +40,46 @@ export class Box {
   }
 
   get material(): Material {
-    return this.primitive.material;
+    return this.storage.material;
   }
 
   get position(): Vector3 {
-    return this.primitive.transform.position;
+    return this.storage.transform.position;
   }
 
   set position(position: Vector3) {
-    this.primitive.transform.position.copy(position);
+    this.storage.transform.position.copy(position);
   }
 
   get rotation(): Euler {
-    return this.primitive.transform.rotation;
+    return this.storage.transform.rotation;
   }
 
   set rotation(rotation: Euler) {
-    this.primitive.transform.rotation.copy(rotation);
+    this.storage.transform.rotation.copy(rotation);
   }
 
   get scale(): Vector3 {
-    return this.primitive.transform.scale;
+    return this.storage.transform.scale;
   }
 
   set scale(scale: Vector3) {
-    this.primitive.transform.scale.copy(scale);
+    this.storage.transform.scale.copy(scale);
   }
 
   get size(): Vector3 {
-    return this.primitive.bounds;
+    return this.storage.bounds;
   }
 
   set size(size: Vector3) {
-    this.primitive.bounds.copy(size);
+    this.storage.bounds.copy(size);
   }
 
   get radius(): number {
-    return this.primitive.radius;
+    return this.storage.radius;
   }
 
   set radius(radius: number) {
-    this.primitive.radius = radius;
+    this.storage.radius = radius;
   }
 }
