@@ -23,7 +23,7 @@ struct Uniforms {
   resolution: vec2f,
   fov: f32, // radians
   elapsedTime: f32, // seconds,
-  operations_count: u32,
+  node_count: u32,
   padding_1: u32,
   padding_2: u32,
   padding_3: u32,
@@ -32,18 +32,28 @@ struct Uniforms {
 @group(0) @binding(0)
 var<uniform> uniforms: Uniforms;
 
-struct Operation {
-  kind: u32, // 0 = None, 1 = Union, 2 = Difference, 3 = Intersection, 4 = Smooth Union
-  primitive_1: u32,
-  primitive_2: u32,
-  param: f32,
-}
+/*
+  Operation:
+    0 = Union
+    1 = Difference
+    2 = Intersection
+    3 = Smooth Union
 
-struct Primitive {
+  Primitive:
+    10 = Plane
+    11 = Box
+    12 = Sphere
+    13 = Torus
+*/
+alias NodeKind = u32;
+
+struct Node {
   inv_world: mat4x4f,
-  bounds: vec4f, // Sphere (r, 0, 0, 0), Plane (0, 0, 0, 0), Box (hx, hy, hz, radius), Torus (R, r, 0, 0)
-  kind: u32, // 0 = Sphere, 1 = Plane, 2 = Rounded Box, 3 = Torus
+  bounds_or_param: vec4f,
+  kind: NodeKind,
   material_id: u32,
+  padding_1: u32,
+  padding_2: u32,
 }
 
 struct Material {
@@ -52,17 +62,10 @@ struct Material {
 }
 
 @group(1) @binding(0)
-var<storage, read> operation_storage: array<Operation>;
+var<storage, read> node_storage: array<Node>;
 
 @group(1) @binding(1)
-var<storage, read> primitive_storage: array<Primitive>;
-
-@group(1) @binding(2)
 var<storage, read> material_storage: array<Material>;
-
-fn sd_sphere(p: vec3f, center: vec3f, radius: f32) -> f32 {
-  return length(p - center) - radius;
-}
 
 fn sd_plane(p: vec3f, point_on_plane: vec3f, normal: vec3f) -> f32 {
   return dot(p - point_on_plane, normalize(normal));
@@ -71,6 +74,10 @@ fn sd_plane(p: vec3f, point_on_plane: vec3f, normal: vec3f) -> f32 {
 fn sd_round_box(p: vec3f, center: vec3f, half_extents: vec3f, radius: f32) -> f32 {
   let q = abs(p - center) - half_extents + vec3f(radius);
   return length(max(q, vec3f(0.0))) + min(max(q.x, max(q.y, q.z)), 0.0) - radius;
+}
+
+fn sd_sphere(p: vec3f, center: vec3f, radius: f32) -> f32 {
+  return length(p - center) - radius;
 }
 
 fn sd_torus(p: vec3f, R: f32, r: f32) -> f32 {
@@ -123,22 +130,13 @@ const ray_marching_steps = 1000i;
 const ray_marching_epsilon = 0.0001f;
 const ray_marching_threshold = 100f;
 
-fn get_primitive_surface(world_point: vec3f, index: u32) -> Surface {
-  let primitive = primitive_storage[index];
+fn get_primitive_surface(primitive: Node, world_point: vec3f) -> Surface {
   let p_local = (primitive.inv_world * vec4f(world_point, 1.0)).xyz;
 
   var dist = ray_distance_threshold;
   
   switch primitive.kind {
-    case 0u: {
-      dist = sd_sphere(
-        p_local,
-        vec3f(0),
-        primitive.bounds.x,
-      );
-    }
-
-    case 1u: {
+    case 10u: {
       dist = sd_plane(
         p_local,
         vec3f(0),
@@ -146,20 +144,28 @@ fn get_primitive_surface(world_point: vec3f, index: u32) -> Surface {
       );
     }
 
-    case 2u: {
+    case 11u: {
       dist = sd_round_box(
         p_local,
         vec3f(0),
-        primitive.bounds.xyz,
-        primitive.bounds.w
+        primitive.bounds_or_param.xyz,
+        primitive.bounds_or_param.w
       );
     }
 
-    case 3u: {
+    case 12u: {
+      dist = sd_sphere(
+        p_local,
+        vec3f(0),
+        primitive.bounds_or_param.x,
+      );
+    }
+
+    case 13u: {
       dist = sd_torus(
         p_local,
-        primitive.bounds.x,
-        primitive.bounds.y,
+        primitive.bounds_or_param.x,
+        primitive.bounds_or_param.y,
       );
     }
 
@@ -175,30 +181,47 @@ fn get_primitive_surface(world_point: vec3f, index: u32) -> Surface {
   return surface;
 }
 
-fn map_scene(point: vec3f) -> Surface {
-  var min_surface = Surface(ray_distance_threshold, vec3f(0));
+fn get_operation_surface(operation: Node, s1: Surface, s2: Surface) -> Surface {
+  var surface = s1;
 
-  for (var i = 0u; i < uniforms.operations_count; i++) {
-    let operation = operation_storage[i];
-    
-    let s1 = get_primitive_surface(point, operation.primitive_1);
-    let s2 = get_primitive_surface(point, operation.primitive_2);
+  switch operation.kind {
+    case 0u: { surface = op_union(s1, s2); }
+    case 1u: { surface = op_difference(s1, s2); } 
+    case 2u: { surface = op_intersection(s1, s2); }
+    case 3u: { surface = op_smooth_union(s1, s2, operation.bounds_or_param.x); }
 
-    var surface = min_surface;
-
-    switch operation.kind {
-      case 0u, default: { surface = s1; }
-
-      case 1u: { surface = op_union(s1, s2); }
-      case 2u: { surface = op_difference(s1, s2); } 
-      case 3u: { surface = op_intersection(s1, s2); }
-      case 4u: { surface = op_smooth_union(s1, s2, operation.param); }
-    }
-
-    min_surface = op_union(min_surface, surface);
+    default: { surface = s1; }
   }
 
-  return min_surface;
+  return surface;
+}
+
+fn map_scene(point: vec3f) -> Surface {
+  var stack: array<Surface, 16>;
+  var stack_pointer = 0u;
+
+  for (var i = 0u; i < uniforms.node_count; i++) {
+    let node = node_storage[i];
+
+    if (node.kind >= 10) {
+      stack[stack_pointer] = get_primitive_surface(node, point);
+      stack_pointer++;
+
+      continue;
+    }
+
+    let s1 = stack[stack_pointer - 2];
+    let s2 = stack[stack_pointer - 1];
+    stack_pointer--;
+
+    stack[stack_pointer - 1] = get_operation_surface(node, s1, s2);
+  }
+
+  if (stack_pointer > 0) {
+    return stack[0];
+  }
+
+  return Surface(ray_distance_threshold, vec3f(0));
 }
 
 fn get_normal(p: vec3f) -> vec3f {

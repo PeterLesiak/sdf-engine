@@ -1,5 +1,9 @@
 export type Listener<T extends any[] = []> = (...params: T) => void;
 
+export function isSignal(value: unknown): value is Signal {
+  return value instanceof Signal;
+}
+
 export class Signal<T extends any[] = []> {
   private listeners = new Set<Listener<T>>();
 

@@ -1,6 +1,6 @@
 import { mat4 } from './mat4';
-import type { Euler } from './euler';
-import type { Vector3 } from './vec3';
+import { euler, type Euler } from './euler';
+import { vec3, type Vector3 } from './vec3';
 import { Signal } from '~/signal';
 
 export class Transform {
@@ -10,7 +10,11 @@ export class Transform {
 
   readonly change = new Signal<[sender: Transform]>();
 
-  constructor(position: Vector3, rotation: Euler, scale: Vector3) {
+  constructor(
+    position = vec3.zero(),
+    rotation = euler.zero(),
+    scale = vec3.one(),
+  ) {
     this.position = position;
     this.rotation = rotation;
     this.scale = scale;

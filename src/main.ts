@@ -1,8 +1,8 @@
 import { createEngine } from '~/engine';
 import { OrbitCamera } from '~/cameras/orbit-camera';
-import { smoothUnion } from '~/operations/smooth-union';
-import { torus } from '~/primitives/torus';
-import { box } from '~/primitives/box';
+import { smoothUnion } from '~/nodes/operations/smooth-union';
+import { torus } from '~/nodes/primitives/torus';
+import { box } from './nodes/primitives/box';
 import { material } from '~/materials/material';
 import { vec3 } from '~/math/vec3';
 import { remap01 } from '~/math/utils';

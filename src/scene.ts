@@ -1,10 +1,6 @@
 import type { Engine } from '~/engine';
 import type { Camera } from '~/cameras/camera';
-import { noop } from '~/operations/noop';
-import type { Operation } from '~/operations/operation';
-import { isPrimitive, type Primitive } from '~/primitives/primitive';
-
-export type SceneNode = Operation | Primitive;
+import type { Node } from '~/nodes/node';
 
 export type SceneOptions = { engine: Engine; camera: Camera };
 
@@ -17,25 +13,22 @@ export class Scene {
     this.camera = options.camera;
   }
 
-  readonly children: Operation[] = [];
+  readonly children: Node[] = [];
 
   update(): this {
     this.camera.computeMatrix();
 
-    for (const operation of this.children) {
-      operation.storage.update();
+    for (const child of this.children) {
+      child.computeMatrix();
+
+      child.flush(this.engine.renderer);
     }
 
     return this;
   }
 
-  add(...nodes: SceneNode[]): this {
-    for (const node of nodes) {
-      const operation = isPrimitive(node) ? noop(node) : node;
-      operation.storage.push(this.engine.renderer);
-
-      this.children.push(operation);
-    }
+  add(...nodes: Node[]): this {
+    this.children.push(...nodes);
 
     return this;
   }

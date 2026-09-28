@@ -13,8 +13,7 @@ export interface Renderer {
   readonly canvas: HTMLCanvasElement;
   readonly viewport: Viewport;
 
-  readonly operationStorage: IterableStorage;
-  readonly primitiveStorage: IterableStorage;
+  readonly nodeStorage: IterableStorage;
   readonly materialStorage: IterableStorage;
 
   resizeToViewport(): boolean;
@@ -61,8 +60,7 @@ export async function createRenderer(
     entries: [{ binding: 0, resource: cameraBuffer.gpuBuffer }],
   });
 
-  const operationStorage = new IterableStorage(device, 4, 100);
-  const primitiveStorage = new IterableStorage(device, 24, 100);
+  const nodeStorage = new IterableStorage(device, 24, 100);
   const materialStorage = new IterableStorage(device, 4, 100);
 
   const storageBindGroupLayout = device.createBindGroupLayout({
@@ -77,20 +75,14 @@ export async function createRenderer(
         visibility: GPUShaderStage.FRAGMENT,
         buffer: { type: 'read-only-storage' },
       },
-      {
-        binding: 2,
-        visibility: GPUShaderStage.FRAGMENT,
-        buffer: { type: 'read-only-storage' },
-      },
     ],
   });
 
   const storageBindGroup = device.createBindGroup({
     layout: storageBindGroupLayout,
     entries: [
-      { binding: 0, resource: operationStorage.gpuBuffer },
-      { binding: 1, resource: primitiveStorage.gpuBuffer },
-      { binding: 2, resource: materialStorage.gpuBuffer },
+      { binding: 0, resource: nodeStorage.gpuBuffer },
+      { binding: 1, resource: materialStorage.gpuBuffer },
     ],
   });
 
@@ -108,8 +100,7 @@ export async function createRenderer(
     canvas,
     viewport: viewport.zero(),
 
-    operationStorage,
-    primitiveStorage,
+    nodeStorage,
     materialStorage,
 
     resizeToViewport() {
@@ -128,8 +119,7 @@ export async function createRenderer(
     },
 
     render(camera, frame) {
-      operationStorage.flush();
-      primitiveStorage.flush();
+      nodeStorage.flush();
       materialStorage.flush();
 
       this.resizeToViewport();
@@ -140,7 +130,7 @@ export async function createRenderer(
         view.f32[16 + offset] = this.viewport.width;
         view.f32[17 + offset] = this.viewport.height;
         view.f32[19 + offset] = frame.elapsedTime;
-        view.u32[20 + offset] = operationStorage.elementCount;
+        view.u32[20 + offset] = nodeStorage.elementCount;
       });
 
       const encoder = device.createCommandEncoder();
