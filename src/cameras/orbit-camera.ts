@@ -31,6 +31,7 @@ export class OrbitCamera extends Camera {
     this.distance = distance;
     this.azimuth = azimuth;
     this.elevation = elevation;
+
     this.updatePosition();
   }
 
@@ -81,8 +82,6 @@ export class OrbitCamera extends Camera {
     const z = this.target.z + this.distance * elevationCos * azimuthCos;
 
     this.position.set(x, y, z);
-
-    this.computeMatrix();
   }
 
   #onPointerDown = (e: PointerEvent) => {

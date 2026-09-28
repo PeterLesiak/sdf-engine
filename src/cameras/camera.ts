@@ -2,6 +2,7 @@ import { mat4, Matrix4 } from '~/math/mat4';
 import { vec3, Vector3 } from '~/math/vec3';
 import { degreesToRadians } from '~/math/utils';
 import type { Degrees, Radians } from '~/types';
+import type { BufferWrite } from '~/renderer/utils';
 
 export class Camera {
   readonly position: Vector3;
@@ -22,8 +23,6 @@ export class Camera {
     this.target = target;
     this.up = up;
     this.fov = fov;
-
-    this.computeMatrix();
   }
 
   element: HTMLElement | null = null;
@@ -48,13 +47,13 @@ export class Camera {
     return this;
   }
 
-  writeBuffer(buffer: Float32Array, offset = 0): this {
+  readonly writeBuffer: BufferWrite = (view, offset) => {
     // mat4x4f (offset = 0, size = 16)
-    this.worldMatrix.writeBuffer(buffer, offset);
+    this.worldMatrix.writeBuffer(view.f32, offset);
 
     // f32 (offset = 18, size = 1)
-    buffer[offset + 18] = this.fov;
+    view.f32[offset + 18] = this.fov;
 
     return this;
-  }
+  };
 }

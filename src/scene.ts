@@ -6,10 +6,7 @@ import { isPrimitive, type Primitive } from '~/primitives/primitive';
 
 export type SceneNode = Operation | Primitive;
 
-export type SceneOptions = {
-  engine: Engine;
-  camera: Camera;
-};
+export type SceneOptions = { engine: Engine; camera: Camera };
 
 export class Scene {
   readonly engine: Engine;
@@ -26,7 +23,7 @@ export class Scene {
     this.camera.computeMatrix();
 
     for (const operation of this.children) {
-      operation.storage.flush();
+      operation.storage.update();
     }
 
     return this;

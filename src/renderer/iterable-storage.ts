@@ -1,47 +1,43 @@
-export type StorageBufferView = { u32: Uint32Array; f32: Float32Array };
-
-export type StorageBufferWrite = (
-  views: StorageBufferView,
-  offset: number,
-) => void;
+import { createBufferView, type BufferView, type BufferWrite } from './utils';
 
 export class IterableStorage {
   readonly device: GPUDevice;
   readonly stride: number;
   readonly capacity: number;
 
-  readonly data: ArrayBuffer;
-  readonly view: StorageBufferView;
-  readonly buffer: GPUBuffer;
+  readonly cpuBuffer: ArrayBuffer;
+  readonly view: BufferView;
+  readonly gpuBuffer: GPUBuffer;
 
   constructor(device: GPUDevice, stride: number, capacity: number) {
     this.device = device;
     this.stride = stride;
     this.capacity = capacity;
 
-    this.data = new ArrayBuffer(this.stride * this.capacity * 4);
+    this.cpuBuffer = new ArrayBuffer(this.stride * this.capacity * 4);
 
-    this.view = {
-      u32: new Uint32Array(this.data),
-      f32: new Float32Array(this.data),
-    };
+    this.view = createBufferView(this.cpuBuffer);
 
-    this.buffer = this.device.createBuffer({
-      size: this.data.byteLength,
+    this.gpuBuffer = this.device.createBuffer({
+      size: this.cpuBuffer.byteLength,
       usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
     });
   }
 
-  elementCount = 0;
+  #elementCount = 0;
+
+  get elementCount(): number {
+    return this.#elementCount;
+  }
+
+  push(): number {
+    return this.#elementCount++;
+  }
 
   #minDirtyElementIndex = Infinity;
   #maxDirtyElementIndex = -1;
 
-  push(): number {
-    return this.elementCount++;
-  }
-
-  update(elementIndex: number, write: StorageBufferWrite): this {
+  update(elementIndex: number, write: BufferWrite): this {
     write(this.view, elementIndex * this.stride);
 
     this.#minDirtyElementIndex = Math.min(
@@ -64,9 +60,9 @@ export class IterableStorage {
     const endBytes = (this.#maxDirtyElementIndex + 1) * this.stride * 4;
 
     this.device.queue.writeBuffer(
-      this.buffer,
+      this.gpuBuffer,
       startBytes,
-      this.data,
+      this.cpuBuffer,
       startBytes,
       endBytes - startBytes,
     );

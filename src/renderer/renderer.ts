@@ -1,4 +1,5 @@
-import { IterableStorage, type StorageBufferView } from './iterable-storage';
+import { IterableStorage } from './iterable-storage';
+import { CameraBuffer } from './camera-buffer';
 import shader from './shader.wgsl?raw';
 import type { FrameData } from '~/engine';
 import type { Camera } from '~/cameras/camera';
@@ -43,17 +44,7 @@ export async function createRenderer(
 
   const module = device.createShaderModule({ code: shader });
 
-  const uniformData = new ArrayBuffer(24 * 4);
-
-  const uniformView: StorageBufferView = {
-    u32: new Uint32Array(uniformData),
-    f32: new Float32Array(uniformData),
-  };
-
-  const uniformBuffer = device.createBuffer({
-    size: uniformData.byteLength,
-    usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
-  });
+  const cameraBuffer = new CameraBuffer(device);
 
   const uniformBindGroupLayout = device.createBindGroupLayout({
     entries: [
@@ -67,7 +58,7 @@ export async function createRenderer(
 
   const uniformBindGroup = device.createBindGroup({
     layout: uniformBindGroupLayout,
-    entries: [{ binding: 0, resource: uniformBuffer }],
+    entries: [{ binding: 0, resource: cameraBuffer.gpuBuffer }],
   });
 
   const operationStorage = new IterableStorage(device, 4, 100);
@@ -97,9 +88,9 @@ export async function createRenderer(
   const storageBindGroup = device.createBindGroup({
     layout: storageBindGroupLayout,
     entries: [
-      { binding: 0, resource: operationStorage },
-      { binding: 1, resource: primitiveStorage },
-      { binding: 2, resource: materialStorage },
+      { binding: 0, resource: operationStorage.gpuBuffer },
+      { binding: 1, resource: primitiveStorage.gpuBuffer },
+      { binding: 2, resource: materialStorage.gpuBuffer },
     ],
   });
 
@@ -137,46 +128,40 @@ export async function createRenderer(
     },
 
     render(camera, frame) {
-      {
-        operationStorage.flush();
-        primitiveStorage.flush();
-        materialStorage.flush();
-      }
+      operationStorage.flush();
+      primitiveStorage.flush();
+      materialStorage.flush();
 
-      {
-        this.resizeToViewport();
+      this.resizeToViewport();
 
-        camera.writeBuffer(uniformView.f32);
+      cameraBuffer.update((view, offset) => {
+        camera.writeBuffer(view, offset);
 
-        uniformView.f32[16] = this.viewport.width;
-        uniformView.f32[17] = this.viewport.height;
-        uniformView.f32[19] = frame.elapsedTime;
-        uniformView.u32[20] = operationStorage.elementCount;
+        view.f32[16 + offset] = this.viewport.width;
+        view.f32[17 + offset] = this.viewport.height;
+        view.f32[19 + offset] = frame.elapsedTime;
+        view.u32[20 + offset] = operationStorage.elementCount;
+      });
 
-        device.queue.writeBuffer(uniformBuffer, 0, uniformData);
-      }
+      const encoder = device.createCommandEncoder();
 
-      {
-        const encoder = device.createCommandEncoder();
+      const pass = encoder.beginRenderPass({
+        colorAttachments: [
+          {
+            view: context.getCurrentTexture().createView(),
+            loadOp: 'clear',
+            storeOp: 'store',
+          },
+        ],
+      });
 
-        const pass = encoder.beginRenderPass({
-          colorAttachments: [
-            {
-              view: context.getCurrentTexture().createView(),
-              loadOp: 'clear',
-              storeOp: 'store',
-            },
-          ],
-        });
+      pass.setPipeline(pipeline);
+      pass.setBindGroup(0, uniformBindGroup);
+      pass.setBindGroup(1, storageBindGroup);
+      pass.draw(3);
+      pass.end();
 
-        pass.setPipeline(pipeline);
-        pass.setBindGroup(0, uniformBindGroup);
-        pass.setBindGroup(1, storageBindGroup);
-        pass.draw(3);
-        pass.end();
-
-        device.queue.submit([encoder.finish()]);
-      }
+      device.queue.submit([encoder.finish()]);
     },
   } satisfies Renderer;
 }

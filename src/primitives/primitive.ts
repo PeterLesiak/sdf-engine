@@ -1,5 +1,5 @@
 import type { Renderer } from '~/renderer/renderer';
-import type { StorageBufferWrite } from '~/renderer/iterable-storage';
+import type { BufferWrite } from '~/renderer/utils';
 import type { Material } from '~/materials/material';
 import { Transform } from '~/math/transform';
 import type { Euler } from '~/math/euler';
@@ -63,14 +63,12 @@ export class PrimitiveStorage {
   }
 
   readonly transform: Transform;
-
   readonly bounds: Vector3;
-
   readonly material: Material;
 
-  renderer: Renderer | null = null;
-  primitiveIndex = -1;
-  materialIndex = 0;
+  #renderer: Renderer | null = null;
+  #primitiveIndex = -1;
+  #materialIndex = 0;
 
   constructor(options: PrimitiveOptions) {
     this.#kind = options.kind;
@@ -95,45 +93,45 @@ export class PrimitiveStorage {
     this.material = options.material;
   }
 
-  readonly writeBuffer: StorageBufferWrite = ({ u32, f32 }, offset) => {
+  readonly writeBuffer: BufferWrite = (view, offset) => {
     // mat4x4f (offset = 0, size = 16)
-    this.transform.inverseWorldMatrix.writeBuffer(f32, offset);
+    this.transform.inverseWorldMatrix.writeBuffer(view.f32, offset);
 
     // vec3f (offset = 16, size = 3)
-    this.bounds.writeBuffer(f32, offset + 16);
+    this.bounds.writeBuffer(view.f32, offset + 16);
 
     // f32 (offset = 19, size = 1)
-    f32[offset + 19] = this.radius;
+    view.f32[offset + 19] = this.#radius;
 
     // u32 (offset = 20, size = 1)
-    u32[offset + 20] = this.kind;
+    view.u32[offset + 20] = this.#kind;
 
     // u32 (offset = 21, size = 1)
-    u32[offset + 21] = this.materialIndex;
+    view.u32[offset + 21] = this.#materialIndex;
 
     return this;
   };
 
   push(renderer: Renderer): number {
-    this.renderer = renderer;
+    this.#renderer = renderer;
 
-    this.materialIndex = this.material.push(renderer);
-    this.primitiveIndex = this.renderer.primitiveStorage.push();
+    this.#materialIndex = this.material.push(renderer);
+    this.#primitiveIndex = this.#renderer.primitiveStorage.push();
 
-    return this.primitiveIndex;
+    return this.#primitiveIndex;
   }
 
-  flush(): this {
-    if (!this.renderer || this.primitiveIndex < 0) return this;
+  update(): this {
+    if (!this.#renderer || this.#primitiveIndex < 0) return this;
 
     if (!this.#isDirty) return this;
 
     this.transform.computeMatrix();
 
-    this.material.flush();
+    this.material.update();
 
-    this.renderer.primitiveStorage.update(
-      this.primitiveIndex,
+    this.#renderer.primitiveStorage.update(
+      this.#primitiveIndex,
       this.writeBuffer,
     );
 

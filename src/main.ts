@@ -17,7 +17,7 @@ const cube = box({
   material: material({ color: vec3(0, 0.5, 1) }),
 });
 
-const operation = smoothUnion(ring, cube);
+const operation = smoothUnion(ring, cube, 0.7);
 
 engine.scene.add(operation);
 
@@ -29,7 +29,8 @@ engine.tick.subscribe(({ elapsedTime, deltaTime }) => {
 
   cube.rotation.x -= deltaTime * 0.3;
   cube.rotation.y -= deltaTime * 0.3;
-  cube.material.color.x = remap01(Math.sin(elapsedTime * 0.001));
+  cube.material.color.x = 1 - remap01(Math.sin(elapsedTime * 0.001));
+  cube.material.color.y = remap01(Math.sin(elapsedTime * 0.001));
 
   engine.render();
 });

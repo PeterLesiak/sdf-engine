@@ -1,5 +1,5 @@
 import type { Renderer } from '~/renderer/renderer';
-import type { StorageBufferWrite } from '~/renderer/iterable-storage';
+import type { BufferWrite } from '~/renderer/utils';
 import type { Primitive } from '~/primitives/primitive';
 import { isDictionary } from '~/utils';
 import type { Enum } from '~/types';
@@ -57,59 +57,58 @@ export class OperationStorage {
   readonly object1: Primitive;
   readonly object2?: Primitive;
 
-  renderer: Renderer | null = null;
-  operationIndex = -1;
-  primitive1Index = 0;
-  primitive2Index = 0;
+  #renderer: Renderer | null = null;
+  #operationIndex = -1;
+  #primitive1Index = 0;
+  #primitive2Index = 0;
 
   constructor(options: OperationOptions) {
     this.#kind = options.kind;
     this.#param = options.param;
-
     this.object1 = options.object1;
     this.object2 = options.object2;
   }
 
-  readonly writeBuffer: StorageBufferWrite = ({ u32, f32 }, offset) => {
+  readonly writeBuffer: BufferWrite = (view, offset) => {
     // u32 (offset = 0, size = 1)
-    u32[offset] = this.kind;
+    view.u32[offset] = this.#kind;
 
     // u32 (offset = 1, size = 1)
-    u32[offset + 1] = this.primitive1Index;
+    view.u32[offset + 1] = this.#primitive1Index;
 
     // u32 (offset = 2, size = 1)
-    u32[offset + 2] = this.primitive2Index;
+    view.u32[offset + 2] = this.#primitive2Index;
 
     // f32 (offset = 3, size = 1)
-    f32[offset + 3] = this.param;
+    view.f32[offset + 3] = this.#param;
 
     return this;
   };
 
-  push(renderer: Renderer): this {
-    this.renderer = renderer;
+  push(renderer: Renderer): number {
+    this.#renderer = renderer;
 
-    this.primitive1Index = this.object1.storage.push(renderer);
+    this.#primitive1Index = this.object1.storage.push(renderer);
 
     if (this.object2) {
-      this.primitive2Index = this.object2.storage.push(renderer);
+      this.#primitive2Index = this.object2.storage.push(renderer);
     }
 
-    this.operationIndex = renderer.operationStorage.push();
+    this.#operationIndex = renderer.operationStorage.push();
 
-    return this;
+    return this.#operationIndex;
   }
 
-  flush(): this {
-    if (!this.renderer || this.operationIndex < 0) return this;
+  update(): this {
+    if (!this.#renderer || this.#operationIndex < 0) return this;
 
     if (!this.#isDirty) return this;
 
-    this.object1.storage.flush();
-    this.object2?.storage.flush();
+    this.object1.storage.update();
+    this.object2?.storage.update();
 
-    this.renderer.operationStorage.update(
-      this.operationIndex,
+    this.#renderer.operationStorage.update(
+      this.#operationIndex,
       this.writeBuffer,
     );
 
